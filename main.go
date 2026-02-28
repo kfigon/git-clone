@@ -103,18 +103,11 @@ func catFile(s []string) {
 		logToStdErrAndExit("error parsing size of blob %s: %v", p, err)
 		return
 	}
-	if kind == "blob" {
-		buf := make([]byte, size)
-		bytesRead, err := reader.Read(buf)
-		if err != nil {
-			logToStdErrAndExit("error reading rest of data %s, %v", p, err)
-			return
-		} else if bytesRead != size {
-			logToStdErrAndExit("mismatch in read size for %s, exp size %d, got %s", p, size, bytesRead)
-			return
-		}
 
-		os.Stdout.Write(buf)
+	if kind == "blob" {
+		// limit reader to avoid allocations
+		limited := io.LimitReader(reader, int64(size))
+		io.Copy(os.Stdout, limited)
 		_ = pretty
 	} else {
 		logToStdErrAndExit("unknown type %q for hash %s", kind, p)
