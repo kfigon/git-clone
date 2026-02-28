@@ -16,8 +16,9 @@ import (
 
 func main() {
 	cmds := map[string]func([]string){
-		"decompress": decompressCmd,
-		"cat-file":   catFile,
+		"decompress":  decompressCmd,
+		"cat-file":    catFile,
+		"hash-object": hashObject,
 	}
 
 	if len(os.Args) < 2 {
@@ -105,10 +106,11 @@ func catFile(s []string) {
 	}
 
 	if kind == "blob" {
+		_ = pretty // todo: this is already a pretty print, will do different when supporting modes
+
 		// limit reader to avoid allocations
 		limited := io.LimitReader(reader, int64(size))
 		io.Copy(os.Stdout, limited)
-		_ = pretty
 	} else {
 		logToStdErrAndExit("unknown type %q for hash %s", kind, p)
 		return
@@ -119,4 +121,8 @@ func catFile(s []string) {
 func logToStdErrAndExit(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", args...)
 	os.Exit(1)
+}
+
+func hashObject(args []string) {
+	//todo: https://youtu.be/u0VotuGzD_w?t=4128
 }
