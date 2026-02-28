@@ -104,7 +104,6 @@ func catFile(s []string) {
 		return
 	}
 	if kind == "blob" {
-		fmt.Println(kind, size)
 		buf := make([]byte, size)
 		bytesRead, err := reader.Read(buf)
 		if err != nil {
