@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"compress/zlib"
 	"flag"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -73,14 +75,53 @@ func catFile(s []string) {
 	}
 	defer f.Close()
 
-	reader, err := zlib.NewReader(f)
+	decompressed, err := zlib.NewReader(f)
 	if err != nil {
 		logToStdErrAndExit("error decompressing %s: %v", p, err)
 		return
 	}
-	defer reader.Close()
-	io.Copy(os.Stdout, reader)
-	_ = pretty
+	defer decompressed.Close()
+
+	reader := bufio.NewReader(decompressed)
+	// blob format - there's a cstring:
+	// blob <size>0<content>
+	header, err := reader.ReadBytes(0)
+	if err != nil {
+		logToStdErrAndExit("error reading blob header %s: %v", p, err)
+		return
+	}
+	// skip 0 byte
+	headerParts := strings.Split(string(header[:len(header)-1]), " ")
+	if len(headerParts) != 2 {
+		logToStdErrAndExit("invalid format of header: %s", header)
+		return
+	}
+
+	kind := headerParts[0]
+	size, err := strconv.Atoi(headerParts[1])
+	if err != nil {
+		logToStdErrAndExit("error parsing size of blob %s: %v", p, err)
+		return
+	}
+	if kind == "blob" {
+		fmt.Println(kind, size)
+		buf := make([]byte, size)
+		bytesRead, err := reader.Read(buf)
+		if err != nil {
+			logToStdErrAndExit("error reading rest of data %s, %v", p, err)
+			return
+		} else if bytesRead != size {
+			logToStdErrAndExit("mismatch in read size for %s, exp size %d, got %s", p, size, bytesRead)
+			return
+		}
+
+		os.Stdout.Write(buf)
+		_ = pretty
+	} else {
+		logToStdErrAndExit("unknown type %q for hash %s", kind, p)
+		return
+	}
+
 }
 
 func logToStdErrAndExit(format string, args ...any) {
