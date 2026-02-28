@@ -17,9 +17,7 @@ func main() {
 	}
 
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "command not provided, available: %s\n",
-			strings.Join(slices.Collect(maps.Keys(cmds)), ", "),
-		)
+		fmt.Fprintf(os.Stderr, "command not provided, available: %s\n", availableCmds(cmds))
 		os.Exit(1)
 		return
 	}
@@ -27,13 +25,17 @@ func main() {
 	if fn, ok := cmds[os.Args[1]]; !ok {
 		fmt.Fprintf(os.Stderr, "invalid command %s, available: %s\n",
 			os.Args[1],
-			strings.Join(slices.Collect(maps.Keys(cmds)), ", "),
+			availableCmds(cmds),
 		)
 		os.Exit(1)
 		return
 	} else {
 		fn(os.Args[2:])
 	}
+}
+
+func availableCmds(cmds map[string]func([]string)) string {
+	return strings.Join(slices.Collect(maps.Keys(cmds)), ", ")
 }
 
 func decompressCmd(_ []string) {
