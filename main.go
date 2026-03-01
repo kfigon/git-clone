@@ -2,7 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"compress/zlib"
+	"crypto/sha1"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
@@ -91,8 +94,10 @@ func catFile(s []string) {
 		logToStdErrAndExit("error reading blob header %s: %v", p, err)
 		return
 	}
+
 	// skip 0 byte
-	headerParts := strings.Split(string(header[:len(header)-1]), " ")
+	header = header[:len(header)-1]
+	headerParts := strings.Split(string(header), " ")
 	if len(headerParts) != 2 {
 		logToStdErrAndExit("invalid format of header: %s", header)
 		return
@@ -105,17 +110,17 @@ func catFile(s []string) {
 		return
 	}
 
-	if kind == "blob" {
+	switch kind {
+	case "blob":
 		_ = pretty // todo: this is already a pretty print, will do different when supporting modes
 
-		// limit reader to avoid allocations
+		// limit reader to avoid allocations and zlib bomb
 		limited := io.LimitReader(reader, int64(size))
 		io.Copy(os.Stdout, limited)
-	} else {
+	default:
 		logToStdErrAndExit("unknown type %q for hash %s", kind, p)
 		return
 	}
-
 }
 
 func logToStdErrAndExit(format string, args ...any) {
@@ -125,4 +130,63 @@ func logToStdErrAndExit(format string, args ...any) {
 
 func hashObject(args []string) {
 	//todo: https://youtu.be/u0VotuGzD_w?t=4128
+	fs := flag.NewFlagSet("hash-object", flag.ExitOnError)
+	write := fs.Bool("w", false, "set to true to write to file")
+	fs.Parse(args)
+
+	fileName := fs.Arg(0)
+	if len(fileName) == 0 {
+		logToStdErrAndExit("no file provided")
+		return
+	}
+
+	fileBytes, err := os.ReadFile(fileName)
+	if err != nil {
+		logToStdErrAndExit("error reading file %s: %v", fileName, err)
+		return
+	}
+	// blob <size>0<content>
+	// compress it
+	// hash it
+
+	size := len(fileBytes)
+
+	buf := bytes.NewBuffer(make([]byte, 0, size+len("blob ")+1))
+	buf.WriteString(fmt.Sprintf("blob %d", size))
+	buf.WriteByte(0)
+	buf.Write(fileBytes)
+	finalHash := sha1.Sum(buf.Bytes())
+	printableHash := hex.EncodeToString(finalHash[:])
+
+	if *write {
+		compressed := bytes.NewBuffer(nil)
+		compressor := zlib.NewWriter(compressed)
+
+		compressor.Write([]byte(fmt.Sprintf("blob %d", size)))
+		compressor.Write([]byte{0})
+		compressor.Write(fileBytes)
+		compressor.Close()
+
+		dir := path.Join(".git", "objects", printableHash[:2])
+		// this won't error if file is already created
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			logToStdErrAndExit("error creating directory %s: %w", dir, err)
+			return
+		}
+
+		p := path.Join(dir, printableHash[2:])
+		f, err := os.Create(p)
+		if err != nil {
+			logToStdErrAndExit("error creating file %s: %v", p, err)
+			return
+		}
+		defer f.Close()
+
+		if _, err = io.Copy(f, compressed); err != nil {
+			logToStdErrAndExit("error writing contet to file", p, err)
+			return
+		}
+	}
+
+	fmt.Println(printableHash)
 }
