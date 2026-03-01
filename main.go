@@ -193,4 +193,40 @@ func hashObject(args []string) {
 
 func lsTree(args []string) {
 	// todo: https://youtu.be/u0VotuGzD_w?t=6408
+	fs := flag.NewFlagSet("ls-tree", flag.ExitOnError)
+	fs.Parse(args)
+
+	sha := fs.Arg(0)
+
+	if len(sha) < 2 {
+		logToStdErrAndExit("invalid sha provided: %s", sha)
+		return
+	}
+	p := path.Join(".git", "objects", sha[:2], sha[2:])
+	f, err := os.Open(p)
+	if err != nil {
+		logToStdErrAndExit("error reading file %s: %v", p, err)
+		return
+	}
+	defer f.Close()
+
+	decomp, err := zlib.NewReader(f)
+	if err != nil {
+		logToStdErrAndExit("error decompressing %s: %v", p, err)
+		return
+	}
+	defer decomp.Close()
+
+	_, err = io.Copy(os.Stdout, decomp)
+	if err != nil {
+		logToStdErrAndExit("error copying output %s: %v", p, err)
+		return
+	}
+	// tree <size>0
+	// <mode> <name>0<20 byte hash>
+	// <mode> <name>0<20 byte hash>
+	// <mode> <name>0<20 byte hash>
+	// name is name of the file/dir. Only one level deep here, we can recurse
+	// mode is the file/dir mode
+	// hash is not in hex form, it's raw bytes
 }
