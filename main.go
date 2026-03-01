@@ -22,6 +22,7 @@ func main() {
 		"decompress":  decompressCmd,
 		"cat-file":    catFile,
 		"hash-object": hashObject,
+		"ls-tree":     lsTree,
 	}
 
 	if len(os.Args) < 2 {
@@ -129,7 +130,6 @@ func logToStdErrAndExit(format string, args ...any) {
 }
 
 func hashObject(args []string) {
-	//todo: https://youtu.be/u0VotuGzD_w?t=4128
 	fs := flag.NewFlagSet("hash-object", flag.ExitOnError)
 	write := fs.Bool("w", false, "set to true to write to file")
 	fs.Parse(args)
@@ -189,4 +189,8 @@ func hashObject(args []string) {
 	}
 
 	fmt.Println(printableHash)
+}
+
+func lsTree(args []string) {
+	// todo: https://youtu.be/u0VotuGzD_w?t=6408
 }
