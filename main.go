@@ -146,8 +146,8 @@ func hashObject(args []string) {
 		return
 	}
 	// blob <size>0<content>
-	// compress it
-	// hash it
+	// hash it to get the key (20 bytes)
+	// compress the it and store in the file if -w provided
 
 	size := len(fileBytes)
 
